@@ -13,7 +13,7 @@ music_services = [['melon', ['local', 'kakao']],\
                   ['soribada', ['local', 'facebook', 'kakao']],\
                   ['olleh', ['local', 'facebook' , 'twitter']]]
 
-# max 멜론500
+# max 멜론1000
 
 # 바이브는 로컬이 네이버로그인
 # 벅스 한게임 plus계정은 일단 보류(그 계정자체에서도 여러 로그인타입 존재)
@@ -61,15 +61,11 @@ class Music:
 
 
 def save_as_pickle(filename, playlist_list):
-    f = open(filename, 'wb')
-    pickle.dump(playlist_list, f)
-    f.close()
+    pickle.dump(playlist_list, open(filename, 'wb'))
 
 
 def load_from_pickle(filename):
-    f = open(filename, 'rb')
-    playlist_list = pickle.load(f)
-    return playlist_list
+    return pickle.load(open(filename, 'rb'))
 
 
 def start():
@@ -264,17 +260,9 @@ if __name__ == '__main__':
         print(playlist)
         print(playlist.contents_str())
 
-
+    test_melon_account = load_from_pickle('melon01.plmaccount')
     start()
     print_service_list()
-    test_melon_account = UserInfo(0, 'local', 'parkjungsub@parkjungsub.com', 'qawsqaws12')
-    test_melon_account2 = UserInfo(0, 'local', 'parkjeongseop', 'qawsqaws12')
-    # test_melon_account = UserInfo(0, 'kakao', 'parkjeongseop@parkjeongseop.com', 'kakao34783')
-    # crawl(test_melon_account) #test
-    # service_id = int(input("Service ID: "))
-    # id = input_no_blank("ID")
-    # pw = input_no_blank("PW")
-    # crawl(0, id, pw)
     login(test_melon_account)
     crawled_data = crawl(test_melon_account)
     save_as_pickle('test.plm', crawled_data)
