@@ -1,4 +1,5 @@
 from selenium import webdriver
+import pickle
 import time
 
 login_types = ['local', 'facebook', 'twitter', 'kakao', 'skt-id', 'payco', 'phone-number']
@@ -57,6 +58,18 @@ class Music:
 
     def __str__(self):
         return f'곡명: {self.name}\t 아티스트: {self.artist}\t 앨범: {self.album}'
+
+
+def save_as_pickle(filename, playlist_list):
+    f = open(filename, 'wb')
+    pickle.dump(playlist_list, f)
+    f.close()
+
+
+def load_from_pickle(filename):
+    f = open(filename, 'rb')
+    playlist_list = pickle.load(f)
+    return playlist_list
 
 
 def start():
@@ -244,6 +257,14 @@ def print_service_list():
 
 
 if __name__ == '__main__':
+
+    # 피클 테스트
+    data = load_from_pickle('test.plm')
+    for playlist in data:
+        print(playlist)
+        print(playlist.contents_str())
+
+
     start()
     print_service_list()
     test_melon_account = UserInfo(0, 'local', 'parkjungsub@parkjungsub.com', 'qawsqaws12')
@@ -256,5 +277,6 @@ if __name__ == '__main__':
     # crawl(0, id, pw)
     login(test_melon_account)
     crawled_data = crawl(test_melon_account)
-    login(test_melon_account2)
+    save_as_pickle('test.plm', crawled_data)
+    # login(test_melon_account2)
     # migrate(test_melon_account2, crawled_data)
