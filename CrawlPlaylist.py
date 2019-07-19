@@ -1,6 +1,8 @@
 from selenium import webdriver
 import pickle
-import time
+from collections import OrderedDict
+from itertools import repeat
+
 
 login_types = ['local', 'facebook', 'twitter', 'kakao', 'skt-id', 'payco', 'phone-number']
 music_services = [['melon', ['local', 'kakao']],\
@@ -18,6 +20,7 @@ music_services = [['melon', ['local', 'kakao']],\
 # 바이브는 로컬이 네이버로그인
 # 벅스 한게임 plus계정은 일단 보류(그 계정자체에서도 여러 로그인타입 존재)
 # 올레뮤직은 local, local2 ? , facebook, twitter, olleh.com 등이 있음 일단 기본만
+
 
 class UserInfo:
     def __init__(self, service_id, login_type, id, pw):
@@ -170,71 +173,35 @@ def crawl(user):
 def migrate(user, playlists):
     if user.service_id == 0:
         # 멜론
-        search_url = 'https://www.melon.com/search/total/index.htm?q='
-        make_playlist_url = 'https://www.melon.com/mymusic/common/popup/mymusiccommon_makePlaylistPopUp.htm'
+        search_get_url = 'https://www.melon.com/mymusic/common/mymusiccommon_searchListSong.htm?kwd='
+        make_playlist_url = 'https://www.melon.com/mymusic/playlist/mymusicplaylistinsert_insert.htm'
+        make_playlist_post_url = 'https://www.melon.com/mymusic/playlist/mymusicplaylistinsert_insertAction.json'
 
         for playlist in playlists:
-            driver.get(make_playlist_url)
-            driver.find_element_by_id('plylstTitle').send_keys(playlist.name)
-            driver.find_element_by_class_name('btn_emphs_small').click()
-
-            # Todo: 이미있는 플레이리스트의 경우, 플레이리스트가 1페이지에 있지않은경우 구현 (페이지탐색)
+            music_uid_list = []
             for music in playlist.music_list:
-                driver.get(f'{search_url}{music.name} {music.artist}')
-                driver.find_element_by_xpath('//*[@id="frm_songList"]/div/table/tbody/tr/td[3]/div/div/button[2]').click() #첫번째 음악 추가버튼
-                driver.find_element_by_xpath(get_element_by_text(playlist.name)[:-8] + 'span/button').click()
+                driver.get(search_get_url + music.name + ' ' + music.artist)
+                try:
+                    music_uid_list.append(driver.find_element_by_xpath('/html/body/div[1]/input').get_attribute('value')) # 검색결과 첫번째 음악의 고유아이디
+                except:
+                    print(f"not found {music.name} {music.artist}")
 
+            music_uid_list = list(OrderedDict(zip(music_uid_list, repeat(None)))) # 중복제거 (곡명과 아티스트로 검색하기때문에 다른 앨범의 곡이 2개 이상있는경우 제거
 
+            driver.get(make_playlist_url)
 
+            data = '''var songList = new Array();'''
 
-        driver.get()
-        driver.find_element_by_xpath('//*[@id="gnb_menu"]/ul[2]/li[1]/a/span[2]').click()
-        driver.implicitly_wait(3)
-        time.sleep(3)
-        uid = driver.current_url[-8:]
-        driver.get(playlist_url + uid)
-        playlist_list = driver.find_elements_by_xpath('//*[@id="pageList"]/table/tbody/tr/td[2]/div/div/dl/dt/a')
-
-        # 플레이리스트 목록 페이지 진입
-        for i in range(len(playlist_list)):
-            time.sleep(2)
-            playlist_list = driver.find_elements_by_xpath('//*[@id="pageList"]/table/tbody/tr/td[2]/div/div/dl/dt/a')
-            playlist_name = playlist_list[i].text
-
-            # 플레이리스트 생성
-            playlist = Playlist(playlist_name)
-            print(playlist)
-
-            driver.implicitly_wait(3)
-            playlist_list[i].click()
-
-            pages = driver.find_elements_by_xpath('//*[@id="pageObjNavgation"]/div/span/a')
-
-            for j in range(len(pages) + 1):
-                names = driver.find_elements_by_xpath('//*[@id="frm"]/div/table/tbody/tr/td[3]/div/div/a[1]')
-                artists = driver.find_elements_by_xpath('//*[@id="artistName"]')
-                albums = driver.find_elements_by_xpath('//*[@id="frm"]/div/table/tbody/tr/td[5]/div/div/a')
-
-                for k in range(len(names)):
-                    temp_music = Music(names[k].text, artists[k].text, albums[k].text)
-                    playlist.add_music(temp_music)
-                    print(temp_music)
-
-                if j == len(pages):
-                    break
-                else:
-                    driver.find_elements_by_xpath('//*[@id="pageObjNavgation"]/div/span/a')[j].click()
-                    driver.implicitly_wait(3)
-                    time.sleep(2)
-            data.append(playlist)
-            print(playlist)
-            print(playlist.print_contents())
-
-            driver.get(playlist_url + uid)
-            # driver.back()
-        print(data)
-        for a in data:
-            print(a)
+            for music_uid in music_uid_list:
+                data += f'songList.push({music_uid});'
+            data += '''$.ajax({
+                    type : "POST",
+                    url  : "/mymusic/playlist/mymusicplaylistinsert_insertAction.json",
+                    async : false,
+                    data : {plylstTitle : encodeURIComponent("''' + playlist.name + '''"), playlistDesc : encodeURIComponent("made by playlistmanager"), openYn : "N", songIds : songList, repntImagePath : "", repntImagePathDefaultYn : "N"}
+                });
+    '''
+            driver.execute_script(data)
 
 
 def input_no_blank(str):
@@ -260,11 +227,13 @@ if __name__ == '__main__':
         print(playlist)
         print(playlist.contents_str())
 
-    test_melon_account = load_from_pickle('melon01.plmaccount')
+    test_melon01_account = load_from_pickle('melon01.plmaccount')
+    test_melon02_account = load_from_pickle('melon02.plmaccount')
+
     start()
     print_service_list()
-    login(test_melon_account)
-    crawled_data = crawl(test_melon_account)
-    save_as_pickle('test.plm', crawled_data)
-    # login(test_melon_account2)
-    # migrate(test_melon_account2, crawled_data)
+    # login(test_melon01_account)
+    # crawled_data = crawl(test_melon01_account)
+    # save_as_pickle('test.plm', crawled_data)
+    login(test_melon02_account)
+    migrate(test_melon02_account, data)
