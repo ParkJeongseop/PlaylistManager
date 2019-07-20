@@ -2,7 +2,10 @@ from selenium import webdriver
 import pickle
 from collections import OrderedDict
 from itertools import repeat
+import json
 
+
+description = "Migrated by Playlist Manager"
 
 login_types = ['local', 'facebook', 'twitter', 'kakao', 'skt-id', 'payco', 'phone-number']
 music_services = [['melon', ['local', 'kakao']],\
@@ -125,7 +128,12 @@ def login(user):
             print("No Login Type")
     elif user.service_id == 1:
         # 지니
-        print()
+        if user.login_type == 'local':
+            login_url = 'https://www.genie.co.kr/member/popLogin'
+            driver.get(login_url)
+            driver.find_element_by_name('gnb_uxd').send_keys(user.id)
+            driver.find_element_by_name('gnb_uxx').send_keys(user.pw)
+            driver.execute_script('loginID()')
 
 
 def crawl(user):
@@ -175,7 +183,6 @@ def migrate(user, playlists):
         # 멜론
         search_get_url = 'https://www.melon.com/mymusic/common/mymusiccommon_searchListSong.htm?kwd='
         make_playlist_url = 'https://www.melon.com/mymusic/playlist/mymusicplaylistinsert_insert.htm'
-        make_playlist_post_url = 'https://www.melon.com/mymusic/playlist/mymusicplaylistinsert_insertAction.json'
 
         for playlist in playlists:
             music_uid_list = []
@@ -184,7 +191,7 @@ def migrate(user, playlists):
                 try:
                     music_uid_list.append(driver.find_element_by_xpath('/html/body/div[1]/input').get_attribute('value')) # 검색결과 첫번째 음악의 고유아이디
                 except:
-                    print(f"not found {music.name} {music.artist}")
+                    print(f"not found {music}")
 
             music_uid_list = list(OrderedDict(zip(music_uid_list, repeat(None)))) # 중복제거 (곡명과 아티스트로 검색하기때문에 다른 앨범의 곡이 2개 이상있는경우 제거
 
@@ -198,10 +205,68 @@ def migrate(user, playlists):
                     type : "POST",
                     url  : "/mymusic/playlist/mymusicplaylistinsert_insertAction.json",
                     async : false,
-                    data : {plylstTitle : encodeURIComponent("''' + playlist.name + '''"), playlistDesc : encodeURIComponent("made by playlistmanager"), openYn : "N", songIds : songList, repntImagePath : "", repntImagePathDefaultYn : "N"}
+                    data : {plylstTitle : encodeURIComponent("''' + playlist.name + '''"), playlistDesc : encodeURIComponent("''' + description + '''"), openYn : "N", songIds : songList, repntImagePath : "", repntImagePathDefaultYn : "N"}
                 });
     '''
             driver.execute_script(data)
+
+
+    elif user.service_id == 1:
+        # 지니
+        search_get_url = 'https://www.genie.co.kr/search/searchMain?query='
+        make_playlist_url = 'https://www.genie.co.kr/myMusic/newPlayList' # https://www.genie.co.kr/myMusic/jGetMyAlbum
+        playlists_url = 'https://www.genie.co.kr/member/myMusic' # https://www.genie.co.kr/myMusic/jGetMyAlbum
+
+        for playlist in playlists:
+            print(playlist)
+            music_uid_list = []
+            driver.get(make_playlist_url)
+            make_playlist_js = '''var form = $("form[name=hiddenForm]");
+            	$(form).find("[name=albumTitle]").val( "''' + playlist.name + '''" );
+            	$(form).find("[name=albumContent]").val( "''' + description + '''" );
+            	$(form).find("[name=orgMaImg]").val($("input[name=coverImgPath]").val() );
+
+            	$(form).find("[type=input],[type=textarea],[type=file],[type=hidden]").each(function(){
+            		console.log($(this).attr("name") + ":" + $(this).val())
+            	});$(form).ajaxSubmit({
+            	    url: "/myMusic/playListInsert",
+            	    cache: false
+            	});'''
+
+            driver.execute_script(make_playlist_js)
+            print(make_playlist_js)
+
+            driver.get(playlists_url)
+            playlist_uid = json.loads(driver.find_element_by_xpath('/html/body/pre').text)['myAlbumList'][0]['maId']
+            print(playlist_uid)
+
+            for music in playlist.music_list:
+                print(music)
+                driver.get(search_get_url + music.name + ' ' + music.artist)
+                try:
+                    music_uid_list.append(driver.find_element_by_xpath('//*[@id="body-content"]/div[3]/div[2]/div/table/tbody/tr[1]').get_attribute('songid'))  # 검색결과 첫번째 음악의 고유아이디
+                    #
+                    # add_music_to_playlist_js = "fnMyAlbumAdd('" + music_uid + "', '" + playlist_uid + "')"
+                    # driver.execute_script(add_music_to_playlist_js)
+
+                except:
+                    print(f"not found {music}")
+
+            music_uid_list = list(OrderedDict(zip(music_uid_list, repeat(None))))  # 중복제거 (곡명과 아티스트로 검색하기때문에 다른 앨범의 곡이 2개 이상있는경우 제거
+
+            driver.get(make_playlist_url)
+
+
+
+            data = '''$.ajax({
+            type: "POST",
+            url: "/myMusic/jMyAlbumSongAdd",
+            dataType: "json",
+            data: {"mxnm": "''' + playlist_uid + '''", "xgnms": "''' + ';'.join(music_uid_list) + '''", "mxlopths": "''' + ("W;"*len(music_uid_list))[:-1] + '''", "mxflgs": "''' + ("1;"*len(music_uid_list))[:-1] + '''", "unm": iMemUno}
+        });'''
+            print(data)
+            driver.execute_script(data)
+
 
 
 def input_no_blank(str):
@@ -229,11 +294,14 @@ if __name__ == '__main__':
 
     test_melon01_account = load_from_pickle('melon01.plmaccount')
     test_melon02_account = load_from_pickle('melon02.plmaccount')
+    test_genie01_account = load_from_pickle('genie01.plmaccount')
 
     start()
-    print_service_list()
+    login(test_genie01_account)
+    migrate(test_genie01_account, data)
+    # print_service_list()
     # login(test_melon01_account)
     # crawled_data = crawl(test_melon01_account)
     # save_as_pickle('test.plm', crawled_data)
-    login(test_melon02_account)
-    migrate(test_melon02_account, data)
+    # login(test_melon02_account)
+    # migrate(test_melon02_account, data)
