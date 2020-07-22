@@ -3,6 +3,7 @@ import pickle
 from collections import OrderedDict
 from itertools import repeat
 import json
+import time
 
 
 description = "Migrated by Playlist Manager"
@@ -42,7 +43,10 @@ class Playlist:
         self.music_list.append(music)
 
     def __str__(self):
-        return f'{self.name} 수록곡 : 총 {len(self.music_list)}곡'
+        return f'{self.name} 수록곡 : 총 {len(self)}곡'
+
+    def __len__(self):
+        return len(self.music_list)
 
     def contents_str(self):
         result = ""
@@ -126,6 +130,7 @@ def login(user):
 
         else:
             print("No Login Type")
+
     elif user.service_id == 1:
         # 지니
         if user.login_type == 'local':
@@ -134,6 +139,40 @@ def login(user):
             driver.find_element_by_name('gnb_uxd').send_keys(user.id)
             driver.find_element_by_name('gnb_uxx').send_keys(user.pw)
             driver.execute_script('loginID()')
+
+    elif user.service_id == 2:
+        # 플로
+        if user.login_type == 'local':
+            login_url = 'https://www.music-flo.com/member/signin'
+            email_id, email_domain = user.id.split("@")
+            driver.get(login_url)
+            driver.find_element_by_name('emailId').send_keys(email_id)
+            driver.find_element_by_xpath('//*[@id="emailUrl"]/option[14]').click()
+            driver.find_element_by_name('emailUrlDirect').send_keys(email_domain)
+            driver.find_element_by_name('password').send_keys(user.pw)
+            driver.find_element_by_id('btnSubmitSignin').click()
+
+    elif user.service_id == 3:
+        # Vibe
+        if user.login_type == 'Naver':
+            login_url = 'https://nid.naver.com/nidlogin.login'
+            driver.get(login_url)
+            import pyperclip
+            from selenium.webdriver.common.action_chains import ActionChains
+            from selenium.webdriver.common.keys import Keys
+
+            pyperclip.copy(user.id)
+            driver.find_element_by_xpath('//*[@id="id"]').click()
+            ActionChains(driver).key_down(Keys.CONTROL).send_keys('v').key_up(Keys.CONTROL).perform()
+
+            pyperclip.copy(user.pw)
+            driver.find_element_by_xpath('//*[@id="pw"]').click()
+            ActionChains(driver).key_down(Keys.CONTROL).send_keys('v').key_up(Keys.CONTROL).perform()
+
+            driver.find_element_by_xpath('//*[@id="frmNIDLogin"]/fieldset/input').click()
+
+            driver.find_element_by_xpath('//*[@id="frmNIDLogin"]/fieldset/span[1]/a').click()
+            driver.find_element_by_xpath('//*[@id="login_maintain"]/span[2]/a').click()
 
 
 def crawl(user):
@@ -245,18 +284,12 @@ def migrate(user, playlists):
                 driver.get(search_get_url + music.name + ' ' + music.artist)
                 try:
                     music_uid_list.append(driver.find_element_by_xpath('//*[@id="body-content"]/div[3]/div[2]/div/table/tbody/tr[1]').get_attribute('songid'))  # 검색결과 첫번째 음악의 고유아이디
-                    #
-                    # add_music_to_playlist_js = "fnMyAlbumAdd('" + music_uid + "', '" + playlist_uid + "')"
-                    # driver.execute_script(add_music_to_playlist_js)
-
                 except:
                     print(f"not found {music}")
 
             music_uid_list = list(OrderedDict(zip(music_uid_list, repeat(None))))  # 중복제거 (곡명과 아티스트로 검색하기때문에 다른 앨범의 곡이 2개 이상있는경우 제거
 
             driver.get(make_playlist_url)
-
-
 
             data = '''$.ajax({
             type: "POST",
@@ -266,6 +299,94 @@ def migrate(user, playlists):
         });'''
             print(data)
             driver.execute_script(data)
+
+
+    elif user.service_id == 2:
+        # 플로
+        search_get_url = 'https://www.genie.co.kr/search/searchMain?query='
+        make_playlist_url = 'https://www.genie.co.kr/myMusic/newPlayList' # https://www.genie.co.kr/myMusic/jGetMyAlbum
+        playlists_url = 'https://www.genie.co.kr/member/myMusic' # https://www.genie.co.kr/myMusic/jGetMyAlbum
+
+        for playlist in playlists:
+            print(playlist)
+            music_uid_list = []
+            driver.get(make_playlist_url)
+            make_playlist_js = '''var form = $("form[name=hiddenForm]");
+            	$(form).find("[name=albumTitle]").val( "''' + playlist.name + '''" );
+            	$(form).find("[name=albumContent]").val( "''' + description + '''" );
+            	$(form).find("[name=orgMaImg]").val($("input[name=coverImgPath]").val() );
+
+            	$(form).find("[type=input],[type=textarea],[type=file],[type=hidden]").each(function(){
+            		console.log($(this).attr("name") + ":" + $(this).val())
+            	});$(form).ajaxSubmit({
+            	    url: "/myMusic/playListInsert",
+            	    cache: false
+            	});'''
+
+            driver.execute_script(make_playlist_js)
+            print(make_playlist_js)
+
+            driver.get(playlists_url)
+            playlist_uid = json.loads(driver.find_element_by_xpath('/html/body/pre').text)['myAlbumList'][0]['maId']
+            print(playlist_uid)
+
+            for music in playlist.music_list:
+                print(music)
+                driver.get(search_get_url + music.name + ' ' + music.artist)
+                try:
+                    music_uid_list.append(driver.find_element_by_xpath('//*[@id="body-content"]/div[3]/div[2]/div/table/tbody/tr[1]').get_attribute('songid'))  # 검색결과 첫번째 음악의 고유아이디
+                except:
+                    print(f"not found {music}")
+
+            music_uid_list = list(OrderedDict(zip(music_uid_list, repeat(None))))  # 중복제거 (곡명과 아티스트로 검색하기때문에 다른 앨범의 곡이 2개 이상있는경우 제거
+
+            driver.get(make_playlist_url)
+
+            data = '''$.ajax({
+            type: "POST",
+            url: "/myMusic/jMyAlbumSongAdd",
+            dataType: "json",
+            data: {"mxnm": "''' + playlist_uid + '''", "xgnms": "''' + ';'.join(music_uid_list) + '''", "mxlopths": "''' + ("W;"*len(music_uid_list))[:-1] + '''", "mxflgs": "''' + ("1;"*len(music_uid_list))[:-1] + '''", "unm": iMemUno}
+        });'''
+            print(data)
+            driver.execute_script(data)
+
+
+    elif user.service_id == 3:
+        # Vibe
+        search_get_url = 'https://vibe.naver.com/search/tracks?query='
+        make_playlist_post_url = 'https://apis.naver.com/vibeWeb/musicapiweb/myMusic/myAlbum'
+        playlists_url = 'https://vibe.naver.com/library/playlists'
+
+
+        for playlist in playlists:
+            print(playlist)
+
+            did_playlist_ade = False
+            for music in playlist.music_list:
+                print(music)
+                driver.get(search_get_url + music.name + ' ' + music.artist)
+                time.sleep(0.5)
+                print("옴")
+                try:
+                    driver.find_element_by_xpath('//*[@id="content"]/div/div[4]/div[1]/div/table/tbody/tr[1]/td[1]/div/label').click()
+                    print('곡선택')
+                    time.sleep(1)
+                    driver.find_element_by_class_name('btn_add_playlist').click()
+                    print('플레이리스트추가')
+                    if not did_playlist_ade:
+                        driver.find_element_by_xpath('//*[@id="app"]/div[2]/div/div/div/a[1]').click()
+                        print('생성버튼')
+                        time.sleep(0.5)
+                        driver.find_element_by_xpath('//*[@id="new_playlist"]').send_keys(playlist.name)
+                        driver.find_element_by_xpath('//*[@id="app"]/div[3]/div/div/div/a[2]').click()
+                    time.sleep(0.5)
+                    driver.find_element_by_xpath('//*[@id="app"]/div[2]/div/div/div/a[2]').click()
+                    print('추가버튼')
+                except:
+                    print(f"not found {music}")
+                time.sleep(20)
+
 
 
 
@@ -295,10 +416,15 @@ if __name__ == '__main__':
     test_melon01_account = load_from_pickle('melon01.plmaccount')
     test_melon02_account = load_from_pickle('melon02.plmaccount')
     test_genie01_account = load_from_pickle('genie01.plmaccount')
+    test_flo01_account = load_from_pickle('flo01.plmaccount')
+    test_vibe01_account = load_from_pickle('Naver01.plmaccount')
 
     start()
-    login(test_genie01_account)
-    migrate(test_genie01_account, data)
+    # login(test_flo01_account)
+    login(test_vibe01_account)
+    # time.sleep(10)
+    # crawl(test_melon01_account)
+    migrate(test_vibe01_account, data)
     # print_service_list()
     # login(test_melon01_account)
     # crawled_data = crawl(test_melon01_account)
