@@ -78,314 +78,315 @@ def load_from_pickle(filename):
     return pickle.load(open(filename, 'rb'))
 
 
-def start():
-    global driver
-    options = webdriver.ChromeOptions()
-    options.add_argument("user-agent=Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko")
-    # options.add_argument('headless')
-    options.add_argument('window-size=1920x1080')
-    # options.add_argument("disable-gpu")
-    # options.add_argument("user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36")
+class PlaylistManager:
+    def __init__(self):
+        # self.driver = None
+        options = webdriver.ChromeOptions()
+        options.add_argument("user-agent=Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko")
+        # options.add_argument('headless')
+        options.add_argument('window-size=1920x1080')
+        # options.add_argument("disable-gpu")
+        # options.add_argument("user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36")
 
-    driver = webdriver.Chrome('chromedriver', chrome_options=options)
-    driver.implicitly_wait(3)
-
-
-def get_element_by_text(str):
-    element = driver.find_elements_by_xpath("//*[contains(text(), '" + str + "')]")
-    if not len(element):
-        print("Can not Find Element")
-        return None
-    else:
-        return element[0]
+        self.driver = webdriver.Chrome('chromedriver', chrome_options=options)
+        self.driver.implicitly_wait(3)
 
 
-def login(user):
-    if user.service_id == 0:
-        # 멜론
-        if user.login_type == 'local':
-            # driver.delete_all_cookies()
-            login_url = 'https://member.melon.com/muid/web/login/login_informM.htm'
-            driver.get(login_url)
-            driver.find_element_by_name('id').send_keys(user.id)
-            driver.find_element_by_name('pwd').send_keys(user.pw)
-            driver.implicitly_wait(3)
-            driver.find_element_by_id('btnLogin').click()
-
-
-        elif user.login_type == 'kakao':
-            login_url = 'https://member.melon.com/muid/web/login/login_inform.htm'
-            driver.get(login_url)
-            # driver.find_element_by_class_name('btn_gate kakao').click()
-            driver.find_element_by_css_selector('#conts_section > div > div > div:nth-child(1) > button').click()
-            driver.implicitly_wait(50)
-            driver.switch_to.window(driver.window_handles[-1])
-            print(driver.window_handles)
-            print(driver.find_element_by_xpath("/html/head/title").get_attribute('text'))
-            driver.find_element_by_css_selector('#loginEmail').send_keys(user.id)
-            driver.find_element_by_css_selector('#loginPw').send_keys(user.pw)
-            # driver.find_element_by_id('loginEmail').send_keys(user.id)
-            # driver.find_element_by_id('loginPw').send_keys(user.pw)
-            driver.find_element_by_class_name('btn_login submit btn_disabled btn_type2').click()
-
+    def get_element_by_text(self, str):
+        element = self.driver.find_elements_by_xpath("//*[contains(text(), '" + str + "')]")
+        if not len(element):
+            print("Can not Find Element")
+            return None
         else:
-            print("No Login Type")
-
-    elif user.service_id == 1:
-        # 지니
-        if user.login_type == 'local':
-            login_url = 'https://www.genie.co.kr/member/popLogin'
-            driver.get(login_url)
-            driver.find_element_by_name('gnb_uxd').send_keys(user.id)
-            driver.find_element_by_name('gnb_uxx').send_keys(user.pw)
-            driver.execute_script('loginID()')
-
-    elif user.service_id == 2:
-        # 플로
-        if user.login_type == 'local':
-            login_url = 'https://www.music-flo.com/member/signin'
-            email_id, email_domain = user.id.split("@")
-            driver.get(login_url)
-            driver.find_element_by_name('emailId').send_keys(email_id)
-            driver.find_element_by_xpath('//*[@id="emailUrl"]/option[14]').click()
-            driver.find_element_by_name('emailUrlDirect').send_keys(email_domain)
-            driver.find_element_by_name('password').send_keys(user.pw)
-            driver.find_element_by_id('btnSubmitSignin').click()
-
-    elif user.service_id == 3:
-        # Vibe
-        if user.login_type == 'Naver':
-            login_url = 'https://nid.naver.com/nidlogin.login'
-            driver.get(login_url)
-            import pyperclip
-            from selenium.webdriver.common.action_chains import ActionChains
-            from selenium.webdriver.common.keys import Keys
-
-            pyperclip.copy(user.id)
-            driver.find_element_by_xpath('//*[@id="id"]').click()
-            ActionChains(driver).key_down(Keys.CONTROL).send_keys('v').key_up(Keys.CONTROL).perform()
-
-            pyperclip.copy(user.pw)
-            driver.find_element_by_xpath('//*[@id="pw"]').click()
-            ActionChains(driver).key_down(Keys.CONTROL).send_keys('v').key_up(Keys.CONTROL).perform()
-
-            driver.find_element_by_xpath('//*[@id="frmNIDLogin"]/fieldset/input').click()
-
-            driver.find_element_by_xpath('//*[@id="frmNIDLogin"]/fieldset/span[1]/a').click()
-            driver.find_element_by_xpath('//*[@id="login_maintain"]/span[2]/a').click()
+            return element[0]
 
 
-def crawl(user):
-    # 반환할 플레이리스트 배열 생성
-    playlist_list = []
-
-    if user.service_id == 0:
-        playlist_list_url = 'https://www.melon.com/mymusic/playlist/mymusicplaylistmanage_more.htm'
-
-        driver.get(playlist_list_url)
-        playlist_list_name_temp = driver.find_elements_by_xpath('/html/body/div/a/strong')
-        playlist_list_uid_temp = driver.find_elements_by_class_name('plist_name')
-        playlist_list_name = []
-        playlist_list_uid = []
-
-        for i in range(len(playlist_list_name_temp)):
-            playlist_list_name.append(playlist_list_name_temp[i].text)
-            playlist_list_uid.append(playlist_list_uid_temp[i].get_attribute('href')[-12:-3])
-
-        playlist_url = 'https://www.melon.com/mymusic/playlist/mymusicplaylistview_listPagingSong.htm?startIndex=1&pageSize=1000&plylstSeq='
-
-        for i in range(len(playlist_list_name)): #각 플레이리스트들
-            # 플레이리스트 생성
-            playlist = Playlist(playlist_list_name[i])
-
-            driver.get(playlist_url+playlist_list_uid[i])
-            names = driver.find_elements_by_xpath('//*[@id="frm"]/div/table/tbody/tr/td[3]/div/div/a[1]')
-            artists = driver.find_elements_by_xpath('//*[@id="artistName"]')
-            albums = driver.find_elements_by_xpath('//*[@id="frm"]/div/table/tbody/tr/td[5]/div/div/a')
-
-            for k in range(len(names)):  # 플레이리스트 안 음악들
-                temp_music = Music(names[k].text, artists[k].text, albums[k].text)
-                playlist.add_music(temp_music)
-
-            playlist_list.append(playlist)
+    def login(self, user):
+        if user.service_id == 0:
+            # 멜론
+            if user.login_type == 'local':
+                # driver.delete_all_cookies()
+                login_url = 'https://member.melon.com/muid/web/login/login_informM.htm'
+                self.driver.get(login_url)
+                self.driver.find_element_by_name('id').send_keys(user.id)
+                self.driver.find_element_by_name('pwd').send_keys(user.pw)
+                self.driver.implicitly_wait(3)
+                self.driver.find_element_by_id('btnLogin').click()
 
 
-    elif user.service_id == 1: ##지니
-        print()
-        ## 멜론 로그인 ksxobkk1lamxh0om.js
+            elif user.login_type == 'kakao':
+                login_url = 'https://member.melon.com/muid/web/login/login_inform.htm'
+                self.driver.get(login_url)
+                # self.driver.find_element_by_class_name('btn_gate kakao').click()
+                self.driver.find_element_by_css_selector('#conts_section > div > div > div:nth-child(1) > button').click()
+                self.driver.implicitly_wait(50)
+                self.driver.switch_to.window(self.driver.window_handles[-1])
+                print(self.driver.window_handles)
+                print(self.driver.find_element_by_xpath("/html/head/title").get_attribute('text'))
+                self.driver.find_element_by_css_selector('#loginEmail').send_keys(user.id)
+                self.driver.find_element_by_css_selector('#loginPw').send_keys(user.pw)
+                # self.driver.find_element_by_id('loginEmail').send_keys(user.id)
+                # self.driver.find_element_by_id('loginPw').send_keys(user.pw)
+                self.driver.find_element_by_class_name('btn_login submit btn_disabled btn_type2').click()
 
-    return playlist_list
+            else:
+                print("No Login Type")
 
+        elif user.service_id == 1:
+            # 지니
+            if user.login_type == 'local':
+                login_url = 'https://www.genie.co.kr/member/popLogin'
+                self.driver.get(login_url)
+                self.driver.find_element_by_name('gnb_uxd').send_keys(user.id)
+                self.driver.find_element_by_name('gnb_uxx').send_keys(user.pw)
+                self.driver.execute_script('loginID()')
 
-def migrate(user, playlists):
-    if user.service_id == 0:
-        # 멜론
-        search_get_url = 'https://www.melon.com/mymusic/common/mymusiccommon_searchListSong.htm?kwd='
-        make_playlist_url = 'https://www.melon.com/mymusic/playlist/mymusicplaylistinsert_insert.htm'
+        elif user.service_id == 2:
+            # 플로
+            if user.login_type == 'local':
+                login_url = 'https://www.music-flo.com/member/signin'
+                email_id, email_domain = user.id.split("@")
+                self.driver.get(login_url)
+                self.driver.find_element_by_name('emailId').send_keys(email_id)
+                self.driver.find_element_by_xpath('//*[@id="emailUrl"]/option[14]').click()
+                self.driver.find_element_by_name('emailUrlDirect').send_keys(email_domain)
+                self.driver.find_element_by_name('password').send_keys(user.pw)
+                self.driver.find_element_by_id('btnSubmitSignin').click()
 
-        for playlist in playlists:
-            music_uid_list = []
-            for music in playlist.music_list:
-                driver.get(search_get_url + music.name + ' ' + music.artist)
-                try:
-                    music_uid_list.append(driver.find_element_by_xpath('/html/body/div[1]/input').get_attribute('value')) # 검색결과 첫번째 음악의 고유아이디
-                except:
-                    print(f"not found {music}")
+        elif user.service_id == 3:
+            # Vibe
+            if user.login_type == 'Naver':
+                login_url = 'https://nid.naver.com/nidlogin.login'
+                self.driver.get(login_url)
+                import pyperclip
+                from selenium.webdriver.common.action_chains import ActionChains
+                from selenium.webdriver.common.keys import Keys
 
-            music_uid_list = list(OrderedDict(zip(music_uid_list, repeat(None)))) # 중복제거 (곡명과 아티스트로 검색하기때문에 다른 앨범의 곡이 2개 이상있는경우 제거
+                pyperclip.copy(user.id)
+                self.driver.find_element_by_xpath('//*[@id="id"]').click()
+                ActionChains(self.driver).key_down(Keys.CONTROL).send_keys('v').key_up(Keys.CONTROL).perform()
 
-            driver.get(make_playlist_url)
+                pyperclip.copy(user.pw)
+                self.driver.find_element_by_xpath('//*[@id="pw"]').click()
+                ActionChains(self.driver).key_down(Keys.CONTROL).send_keys('v').key_up(Keys.CONTROL).perform()
 
-            data = '''var songList = new Array();'''
+                self.driver.find_element_by_xpath('//*[@id="frmNIDLogin"]/fieldset/input').click()
 
-            for music_uid in music_uid_list:
-                data += f'songList.push({music_uid});'
-            data += '''$.ajax({
-                    type : "POST",
-                    url  : "/mymusic/playlist/mymusicplaylistinsert_insertAction.json",
-                    async : false,
-                    data : {plylstTitle : encodeURIComponent("''' + playlist.name + '''"), playlistDesc : encodeURIComponent("''' + description + '''"), openYn : "N", songIds : songList, repntImagePath : "", repntImagePathDefaultYn : "N"}
-                });
-    '''
-            driver.execute_script(data)
-
-
-    elif user.service_id == 1:
-        # 지니
-        search_get_url = 'https://www.genie.co.kr/search/searchMain?query='
-        make_playlist_url = 'https://www.genie.co.kr/myMusic/newPlayList' # https://www.genie.co.kr/myMusic/jGetMyAlbum
-        playlists_url = 'https://www.genie.co.kr/member/myMusic' # https://www.genie.co.kr/myMusic/jGetMyAlbum
-
-        for playlist in playlists:
-            print(playlist)
-            music_uid_list = []
-            driver.get(make_playlist_url)
-            make_playlist_js = '''var form = $("form[name=hiddenForm]");
-            	$(form).find("[name=albumTitle]").val( "''' + playlist.name + '''" );
-            	$(form).find("[name=albumContent]").val( "''' + description + '''" );
-            	$(form).find("[name=orgMaImg]").val($("input[name=coverImgPath]").val() );
-
-            	$(form).find("[type=input],[type=textarea],[type=file],[type=hidden]").each(function(){
-            		console.log($(this).attr("name") + ":" + $(this).val())
-            	});$(form).ajaxSubmit({
-            	    url: "/myMusic/playListInsert",
-            	    cache: false
-            	});'''
-
-            driver.execute_script(make_playlist_js)
-            print(make_playlist_js)
-
-            driver.get(playlists_url)
-            playlist_uid = json.loads(driver.find_element_by_xpath('/html/body/pre').text)['myAlbumList'][0]['maId']
-            print(playlist_uid)
-
-            for music in playlist.music_list:
-                print(music)
-                driver.get(search_get_url + music.name + ' ' + music.artist)
-                try:
-                    music_uid_list.append(driver.find_element_by_xpath('//*[@id="body-content"]/div[3]/div[2]/div/table/tbody/tr[1]').get_attribute('songid'))  # 검색결과 첫번째 음악의 고유아이디
-                except:
-                    print(f"not found {music}")
-
-            music_uid_list = list(OrderedDict(zip(music_uid_list, repeat(None))))  # 중복제거 (곡명과 아티스트로 검색하기때문에 다른 앨범의 곡이 2개 이상있는경우 제거
-
-            driver.get(make_playlist_url)
-
-            data = '''$.ajax({
-            type: "POST",
-            url: "/myMusic/jMyAlbumSongAdd",
-            dataType: "json",
-            data: {"mxnm": "''' + playlist_uid + '''", "xgnms": "''' + ';'.join(music_uid_list) + '''", "mxlopths": "''' + ("W;"*len(music_uid_list))[:-1] + '''", "mxflgs": "''' + ("1;"*len(music_uid_list))[:-1] + '''", "unm": iMemUno}
-        });'''
-            print(data)
-            driver.execute_script(data)
+                self.driver.find_element_by_xpath('//*[@id="frmNIDLogin"]/fieldset/span[1]/a').click()
+                self.driver.find_element_by_xpath('//*[@id="login_maintain"]/span[2]/a').click()
 
 
-    elif user.service_id == 2:
-        # 플로
-        search_get_url = 'https://www.genie.co.kr/search/searchMain?query='
-        make_playlist_url = 'https://www.genie.co.kr/myMusic/newPlayList' # https://www.genie.co.kr/myMusic/jGetMyAlbum
-        playlists_url = 'https://www.genie.co.kr/member/myMusic' # https://www.genie.co.kr/myMusic/jGetMyAlbum
+    def crawl(self, user):
+        # 반환할 플레이리스트 배열 생성
+        playlist_list = []
 
-        for playlist in playlists:
-            print(playlist)
-            music_uid_list = []
-            driver.get(make_playlist_url)
-            make_playlist_js = '''var form = $("form[name=hiddenForm]");
-            	$(form).find("[name=albumTitle]").val( "''' + playlist.name + '''" );
-            	$(form).find("[name=albumContent]").val( "''' + description + '''" );
-            	$(form).find("[name=orgMaImg]").val($("input[name=coverImgPath]").val() );
+        if user.service_id == 0:
+            playlist_list_url = 'https://www.melon.com/mymusic/playlist/mymusicplaylistmanage_more.htm'
 
-            	$(form).find("[type=input],[type=textarea],[type=file],[type=hidden]").each(function(){
-            		console.log($(this).attr("name") + ":" + $(this).val())
-            	});$(form).ajaxSubmit({
-            	    url: "/myMusic/playListInsert",
-            	    cache: false
-            	});'''
+            self.driver.get(playlist_list_url)
+            playlist_list_name_temp = self.driver.find_elements_by_xpath('/html/body/div/a/strong')
+            playlist_list_uid_temp = self.driver.find_elements_by_class_name('plist_name')
+            playlist_list_name = []
+            playlist_list_uid = []
 
-            driver.execute_script(make_playlist_js)
-            print(make_playlist_js)
+            for i in range(len(playlist_list_name_temp)):
+                playlist_list_name.append(playlist_list_name_temp[i].text)
+                playlist_list_uid.append(playlist_list_uid_temp[i].get_attribute('href')[-12:-3])
 
-            driver.get(playlists_url)
-            playlist_uid = json.loads(driver.find_element_by_xpath('/html/body/pre').text)['myAlbumList'][0]['maId']
-            print(playlist_uid)
+            playlist_url = 'https://www.melon.com/mymusic/playlist/mymusicplaylistview_listPagingSong.htm?startIndex=1&pageSize=1000&plylstSeq='
 
-            for music in playlist.music_list:
-                print(music)
-                driver.get(search_get_url + music.name + ' ' + music.artist)
-                try:
-                    music_uid_list.append(driver.find_element_by_xpath('//*[@id="body-content"]/div[3]/div[2]/div/table/tbody/tr[1]').get_attribute('songid'))  # 검색결과 첫번째 음악의 고유아이디
-                except:
-                    print(f"not found {music}")
+            for i in range(len(playlist_list_name)): #각 플레이리스트들
+                # 플레이리스트 생성
+                playlist = Playlist(playlist_list_name[i])
 
-            music_uid_list = list(OrderedDict(zip(music_uid_list, repeat(None))))  # 중복제거 (곡명과 아티스트로 검색하기때문에 다른 앨범의 곡이 2개 이상있는경우 제거
+                self.driver.get(playlist_url+playlist_list_uid[i])
+                names = self.driver.find_elements_by_xpath('//*[@id="frm"]/div/table/tbody/tr/td[3]/div/div/a[1]')
+                artists = self.driver.find_elements_by_xpath('//*[@id="artistName"]')
+                albums = self.driver.find_elements_by_xpath('//*[@id="frm"]/div/table/tbody/tr/td[5]/div/div/a')
 
-            driver.get(make_playlist_url)
+                for k in range(len(names)):  # 플레이리스트 안 음악들
+                    temp_music = Music(names[k].text, artists[k].text, albums[k].text)
+                    playlist.add_music(temp_music)
 
-            data = '''$.ajax({
-            type: "POST",
-            url: "/myMusic/jMyAlbumSongAdd",
-            dataType: "json",
-            data: {"mxnm": "''' + playlist_uid + '''", "xgnms": "''' + ';'.join(music_uid_list) + '''", "mxlopths": "''' + ("W;"*len(music_uid_list))[:-1] + '''", "mxflgs": "''' + ("1;"*len(music_uid_list))[:-1] + '''", "unm": iMemUno}
-        });'''
-            print(data)
-            driver.execute_script(data)
+                playlist_list.append(playlist)
 
 
-    elif user.service_id == 3:
-        # Vibe
-        search_get_url = 'https://vibe.naver.com/search/tracks?query='
-        make_playlist_post_url = 'https://apis.naver.com/vibeWeb/musicapiweb/myMusic/myAlbum'
-        playlists_url = 'https://vibe.naver.com/library/playlists'
+        elif user.service_id == 1: ##지니
+            print()
+            ## 멜론 로그인 ksxobkk1lamxh0om.js
+
+        return playlist_list
 
 
-        for playlist in playlists:
-            print(playlist)
+    def migrate(self, user, playlists):
+        if user.service_id == 0:
+            # 멜론
+            search_get_url = 'https://www.melon.com/mymusic/common/mymusiccommon_searchListSong.htm?kwd='
+            make_playlist_url = 'https://www.melon.com/mymusic/playlist/mymusicplaylistinsert_insert.htm'
 
-            did_playlist_ade = False
-            for music in playlist.music_list:
-                print(music)
-                driver.get(search_get_url + music.name + ' ' + music.artist)
-                time.sleep(0.5)
-                print("옴")
-                try:
-                    driver.find_element_by_xpath('//*[@id="content"]/div/div[4]/div[1]/div/table/tbody/tr[1]/td[1]/div/label').click()
-                    print('곡선택')
-                    time.sleep(1)
-                    driver.find_element_by_class_name('btn_add_playlist').click()
-                    print('플레이리스트추가')
-                    if not did_playlist_ade:
-                        driver.find_element_by_xpath('//*[@id="app"]/div[2]/div/div/div/a[1]').click()
-                        print('생성버튼')
-                        time.sleep(0.5)
-                        driver.find_element_by_xpath('//*[@id="new_playlist"]').send_keys(playlist.name)
-                        driver.find_element_by_xpath('//*[@id="app"]/div[3]/div/div/div/a[2]').click()
+            for playlist in playlists:
+                music_uid_list = []
+                for music in playlist.music_list:
+                    self.driver.get(search_get_url + music.name + ' ' + music.artist)
+                    try:
+                        music_uid_list.append(self.driver.find_element_by_xpath('/html/body/div[1]/input').get_attribute('value')) # 검색결과 첫번째 음악의 고유아이디
+                    except:
+                        print(f"not found {music}")
+
+                music_uid_list = list(OrderedDict(zip(music_uid_list, repeat(None)))) # 중복제거 (곡명과 아티스트로 검색하기때문에 다른 앨범의 곡이 2개 이상있는경우 제거
+
+                self.driver.get(make_playlist_url)
+
+                data = '''var songList = new Array();'''
+
+                for music_uid in music_uid_list:
+                    data += f'songList.push({music_uid});'
+                data += '''$.ajax({
+                        type : "POST",
+                        url  : "/mymusic/playlist/mymusicplaylistinsert_insertAction.json",
+                        async : false,
+                        data : {plylstTitle : encodeURIComponent("''' + playlist.name + '''"), playlistDesc : encodeURIComponent("''' + description + '''"), openYn : "N", songIds : songList, repntImagePath : "", repntImagePathDefaultYn : "N"}
+                    });
+        '''
+                self.driver.execute_script(data)
+
+
+        elif user.service_id == 1:
+            # 지니
+            search_get_url = 'https://www.genie.co.kr/search/searchMain?query='
+            make_playlist_url = 'https://www.genie.co.kr/myMusic/newPlayList' # https://www.genie.co.kr/myMusic/jGetMyAlbum
+            playlists_url = 'https://www.genie.co.kr/member/myMusic' # https://www.genie.co.kr/myMusic/jGetMyAlbum
+
+            for playlist in playlists:
+                print(playlist)
+                music_uid_list = []
+                self.driver.get(make_playlist_url)
+                make_playlist_js = '''var form = $("form[name=hiddenForm]");
+                    $(form).find("[name=albumTitle]").val( "''' + playlist.name + '''" );
+                    $(form).find("[name=albumContent]").val( "''' + description + '''" );
+                    $(form).find("[name=orgMaImg]").val($("input[name=coverImgPath]").val() );
+
+                    $(form).find("[type=input],[type=textarea],[type=file],[type=hidden]").each(function(){
+                        console.log($(this).attr("name") + ":" + $(this).val())
+                    });$(form).ajaxSubmit({
+                        url: "/myMusic/playListInsert",
+                        cache: false
+                    });'''
+
+                self.driver.execute_script(make_playlist_js)
+                print(make_playlist_js)
+
+                self.driver.get(playlists_url)
+                playlist_uid = json.loads(self.driver.find_element_by_xpath('/html/body/pre').text)['myAlbumList'][0]['maId']
+                print(playlist_uid)
+
+                for music in playlist.music_list:
+                    print(music)
+                    self.driver.get(search_get_url + music.name + ' ' + music.artist)
+                    try:
+                        music_uid_list.append(self.driver.find_element_by_xpath('//*[@id="body-content"]/div[3]/div[2]/div/table/tbody/tr[1]').get_attribute('songid'))  # 검색결과 첫번째 음악의 고유아이디
+                    except:
+                        print(f"not found {music}")
+
+                music_uid_list = list(OrderedDict(zip(music_uid_list, repeat(None))))  # 중복제거 (곡명과 아티스트로 검색하기때문에 다른 앨범의 곡이 2개 이상있는경우 제거
+
+                self.driver.get(make_playlist_url)
+
+                data = '''$.ajax({
+                type: "POST",
+                url: "/myMusic/jMyAlbumSongAdd",
+                dataType: "json",
+                data: {"mxnm": "''' + playlist_uid + '''", "xgnms": "''' + ';'.join(music_uid_list) + '''", "mxlopths": "''' + ("W;"*len(music_uid_list))[:-1] + '''", "mxflgs": "''' + ("1;"*len(music_uid_list))[:-1] + '''", "unm": iMemUno}
+            });'''
+                print(data)
+                self.driver.execute_script(data)
+
+
+        elif user.service_id == 2:
+            # 플로
+            search_get_url = 'https://www.genie.co.kr/search/searchMain?query='
+            make_playlist_url = 'https://www.genie.co.kr/myMusic/newPlayList' # https://www.genie.co.kr/myMusic/jGetMyAlbum
+            playlists_url = 'https://www.genie.co.kr/member/myMusic' # https://www.genie.co.kr/myMusic/jGetMyAlbum
+
+            for playlist in playlists:
+                print(playlist)
+                music_uid_list = []
+                self.driver.get(make_playlist_url)
+                make_playlist_js = '''var form = $("form[name=hiddenForm]");
+                    $(form).find("[name=albumTitle]").val( "''' + playlist.name + '''" );
+                    $(form).find("[name=albumContent]").val( "''' + description + '''" );
+                    $(form).find("[name=orgMaImg]").val($("input[name=coverImgPath]").val() );
+
+                    $(form).find("[type=input],[type=textarea],[type=file],[type=hidden]").each(function(){
+                        console.log($(this).attr("name") + ":" + $(this).val())
+                    });$(form).ajaxSubmit({
+                        url: "/myMusic/playListInsert",
+                        cache: false
+                    });'''
+
+                self.driver.execute_script(make_playlist_js)
+                print(make_playlist_js)
+
+                self.driver.get(playlists_url)
+                playlist_uid = json.loads(self.driver.find_element_by_xpath('/html/body/pre').text)['myAlbumList'][0]['maId']
+                print(playlist_uid)
+
+                for music in playlist.music_list:
+                    print(music)
+                    self.driver.get(search_get_url + music.name + ' ' + music.artist)
+                    try:
+                        music_uid_list.append(self.driver.find_element_by_xpath('//*[@id="body-content"]/div[3]/div[2]/div/table/tbody/tr[1]').get_attribute('songid'))  # 검색결과 첫번째 음악의 고유아이디
+                    except:
+                        print(f"not found {music}")
+
+                music_uid_list = list(OrderedDict(zip(music_uid_list, repeat(None))))  # 중복제거 (곡명과 아티스트로 검색하기때문에 다른 앨범의 곡이 2개 이상있는경우 제거
+
+                self.driver.get(make_playlist_url)
+
+                data = '''$.ajax({
+                type: "POST",
+                url: "/myMusic/jMyAlbumSongAdd",
+                dataType: "json",
+                data: {"mxnm": "''' + playlist_uid + '''", "xgnms": "''' + ';'.join(music_uid_list) + '''", "mxlopths": "''' + ("W;"*len(music_uid_list))[:-1] + '''", "mxflgs": "''' + ("1;"*len(music_uid_list))[:-1] + '''", "unm": iMemUno}
+            });'''
+                print(data)
+                self.driver.execute_script(data)
+
+
+        elif user.service_id == 3:
+            # Vibe
+            search_get_url = 'https://vibe.naver.com/search/tracks?query='
+            make_playlist_post_url = 'https://apis.naver.com/vibeWeb/musicapiweb/myMusic/myAlbum'
+            playlists_url = 'https://vibe.naver.com/library/playlists'
+
+
+            for playlist in playlists:
+                print(playlist)
+
+                did_playlist_ade = False
+                for music in playlist.music_list:
+                    print(music)
+                    self.driver.get(search_get_url + music.name + ' ' + music.artist)
                     time.sleep(0.5)
-                    driver.find_element_by_xpath('//*[@id="app"]/div[2]/div/div/div/a[2]').click()
-                    print('추가버튼')
-                except:
-                    print(f"not found {music}")
-                time.sleep(20)
+                    print("옴")
+                    try:
+                        self.driver.find_element_by_xpath('//*[@id="content"]/div/div[4]/div[1]/div/table/tbody/tr[1]/td[1]/div/label').click()
+                        print('곡선택')
+                        time.sleep(1)
+                        self.driver.find_element_by_class_name('btn_add_playlist').click()
+                        print('플레이리스트추가')
+                        if not did_playlist_ade:
+                            self.driver.find_element_by_xpath('//*[@id="app"]/div[2]/div/div/div/a[1]').click()
+                            print('생성버튼')
+                            time.sleep(0.5)
+                            self.driver.find_element_by_xpath('//*[@id="new_playlist"]').send_keys(playlist.name)
+                            self.driver.find_element_by_xpath('//*[@id="app"]/div[3]/div/div/div/a[2]').click()
+                        time.sleep(0.5)
+                        self.driver.find_element_by_xpath('//*[@id="app"]/div[2]/div/div/div/a[2]').click()
+                        print('추가버튼')
+                    except:
+                        print(f"not found {music}")
+                    time.sleep(20)
 
 
 
@@ -405,29 +406,32 @@ def print_service_list():
         print(i, music_services[i])
 
 
-if __name__ == '__main__':
+# if __name__ == '__main__':
 
-    # 피클 테스트
-    data = load_from_pickle('test.plm')
-    for playlist in data:
-        print(playlist)
-        print(playlist.contents_str())
+#     # # 피클 테스트
+#     # data = load_from_pickle('test.plm')
+#     # for playlist in data:
+#     #     print(playlist)
+#     #     print(playlist.contents_str())
 
-    test_melon01_account = load_from_pickle('melon01.plmaccount')
-    test_melon02_account = load_from_pickle('melon02.plmaccount')
-    test_genie01_account = load_from_pickle('genie01.plmaccount')
-    test_flo01_account = load_from_pickle('flo01.plmaccount')
-    test_vibe01_account = load_from_pickle('Naver01.plmaccount')
+#     # test_melon01_account = load_from_pickle('melon01.plmaccount')
+#     test_melon02_account = load_from_pickle('melon02.plmaccount')
+#     # test_genie01_account = load_from_pickle('genie01.plmaccount')
+#     # test_flo01_account = load_from_pickle('flo01.plmaccount')
+#     # test_vibe01_account = load_from_pickle('Naver01.plmaccount')
 
-    start()
-    # login(test_flo01_account)
-    login(test_vibe01_account)
-    # time.sleep(10)
-    # crawl(test_melon01_account)
-    migrate(test_vibe01_account, data)
-    # print_service_list()
-    # login(test_melon01_account)
-    # crawled_data = crawl(test_melon01_account)
-    # save_as_pickle('test.plm', crawled_data)
-    # login(test_melon02_account)
-    # migrate(test_melon02_account, data)
+#     start()
+#     login(test_melon02_account)
+#     a = crawl(test_melon02_account)
+#     print(a)
+#     # login(test_flo01_account)
+#     # login(test_vibe01_account)
+#     # time.sleep(10)
+#     # crawl(test_melon01_account)
+#     # migrate(test_vibe01_account, data)
+#     # print_service_list()
+#     # login(test_melon01_account)
+#     # crawled_data = crawl(test_melon01_account)
+#     # save_as_pickle('test.plm', crawled_data)
+#     # login(test_melon02_account)
+#     # migrate(test_melon02_account, data)
