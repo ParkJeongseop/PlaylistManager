@@ -217,38 +217,40 @@ class PlaylistManager:
 
         return playlist_list
 
+    def addPlaylists(self, user, playlists): # 구 migrate
+        for playlist in playlists:
+            self.addPlaylist(user, playlist)
 
-    def migrate(self, user, playlists):
+    def addPlaylist(self, user, playlist):
         if user.service_id == 0:
             # 멜론
             search_get_url = 'https://www.melon.com/mymusic/common/mymusiccommon_searchListSong.htm?kwd='
             make_playlist_url = 'https://www.melon.com/mymusic/playlist/mymusicplaylistinsert_insert.htm'
 
-            for playlist in playlists:
-                music_uid_list = []
-                for music in playlist.music_list:
-                    self.driver.get(search_get_url + music.name + ' ' + music.artist)
-                    try:
-                        music_uid_list.append(self.driver.find_element_by_xpath('/html/body/div[1]/input').get_attribute('value')) # 검색결과 첫번째 음악의 고유아이디
-                    except:
-                        print(f"not found {music}")
+            music_uid_list = []
+            for music in playlist.music_list:
+                self.driver.get(search_get_url + music.name + ' ' + music.artist)
+                try:
+                    music_uid_list.append(self.driver.find_element_by_xpath('/html/body/div[1]/input').get_attribute('value')) # 검색결과 첫번째 음악의 고유아이디
+                except:
+                    print(f"not found {music}")
 
-                music_uid_list = list(OrderedDict(zip(music_uid_list, repeat(None)))) # 중복제거 (곡명과 아티스트로 검색하기때문에 다른 앨범의 곡이 2개 이상있는경우 제거
+            music_uid_list = list(OrderedDict(zip(music_uid_list, repeat(None)))) # 중복제거 (곡명과 아티스트로 검색하기때문에 다른 앨범의 곡이 2개 이상있는경우 제거
 
-                self.driver.get(make_playlist_url)
+            self.driver.get(make_playlist_url)
 
-                data = '''var songList = new Array();'''
+            data = '''var songList = new Array();'''
 
-                for music_uid in music_uid_list:
-                    data += f'songList.push({music_uid});'
-                data += '''$.ajax({
-                        type : "POST",
-                        url  : "/mymusic/playlist/mymusicplaylistinsert_insertAction.json",
-                        async : false,
-                        data : {plylstTitle : encodeURIComponent("''' + playlist.name + '''"), playlistDesc : encodeURIComponent("''' + description + '''"), openYn : "N", songIds : songList, repntImagePath : "", repntImagePathDefaultYn : "N"}
-                    });
-        '''
-                self.driver.execute_script(data)
+            for music_uid in music_uid_list:
+                data += f'songList.push({music_uid});'
+            data += '''$.ajax({
+                    type : "POST",
+                    url  : "/mymusic/playlist/mymusicplaylistinsert_insertAction.json",
+                    async : false,
+                    data : {plylstTitle : encodeURIComponent("''' + playlist.name + '''"), playlistDesc : encodeURIComponent("''' + description + '''"), openYn : "N", songIds : songList, repntImagePath : "", repntImagePathDefaultYn : "N"}
+                });
+    '''
+            self.driver.execute_script(data)
 
 
         elif user.service_id == 1:
@@ -257,49 +259,48 @@ class PlaylistManager:
             make_playlist_url = 'https://www.genie.co.kr/myMusic/newPlayList' # https://www.genie.co.kr/myMusic/jGetMyAlbum
             playlists_url = 'https://www.genie.co.kr/member/myMusic' # https://www.genie.co.kr/myMusic/jGetMyAlbum
 
-            for playlist in playlists:
-                print(playlist)
-                music_uid_list = []
-                self.driver.get(make_playlist_url)
-                make_playlist_js = '''var form = $("form[name=hiddenForm]");
-                    $(form).find("[name=albumTitle]").val( "''' + playlist.name + '''" );
-                    $(form).find("[name=albumContent]").val( "''' + description + '''" );
-                    $(form).find("[name=orgMaImg]").val($("input[name=coverImgPath]").val() );
+            print(playlist)
+            music_uid_list = []
+            self.driver.get(make_playlist_url)
+            make_playlist_js = '''var form = $("form[name=hiddenForm]");
+                $(form).find("[name=albumTitle]").val( "''' + playlist.name + '''" );
+                $(form).find("[name=albumContent]").val( "''' + description + '''" );
+                $(form).find("[name=orgMaImg]").val($("input[name=coverImgPath]").val() );
 
-                    $(form).find("[type=input],[type=textarea],[type=file],[type=hidden]").each(function(){
-                        console.log($(this).attr("name") + ":" + $(this).val())
-                    });$(form).ajaxSubmit({
-                        url: "/myMusic/playListInsert",
-                        cache: false
-                    });'''
+                $(form).find("[type=input],[type=textarea],[type=file],[type=hidden]").each(function(){
+                    console.log($(this).attr("name") + ":" + $(this).val())
+                });$(form).ajaxSubmit({
+                    url: "/myMusic/playListInsert",
+                    cache: false
+                });'''
 
-                self.driver.execute_script(make_playlist_js)
-                print(make_playlist_js)
+            self.driver.execute_script(make_playlist_js)
+            print(make_playlist_js)
 
-                self.driver.get(playlists_url)
-                playlist_uid = json.loads(self.driver.find_element_by_xpath('/html/body/pre').text)['myAlbumList'][0]['maId']
-                print(playlist_uid)
+            self.driver.get(playlists_url)
+            playlist_uid = json.loads(self.driver.find_element_by_xpath('/html/body/pre').text)['myAlbumList'][0]['maId']
+            print(playlist_uid)
 
-                for music in playlist.music_list:
-                    print(music)
-                    self.driver.get(search_get_url + music.name + ' ' + music.artist)
-                    try:
-                        music_uid_list.append(self.driver.find_element_by_xpath('//*[@id="body-content"]/div[3]/div[2]/div/table/tbody/tr[1]').get_attribute('songid'))  # 검색결과 첫번째 음악의 고유아이디
-                    except:
-                        print(f"not found {music}")
+            for music in playlist.music_list:
+                print(music)
+                self.driver.get(search_get_url + music.name + ' ' + music.artist)
+                try:
+                    music_uid_list.append(self.driver.find_element_by_xpath('//*[@id="body-content"]/div[3]/div[2]/div/table/tbody/tr[1]').get_attribute('songid'))  # 검색결과 첫번째 음악의 고유아이디
+                except:
+                    print(f"not found {music}")
 
-                music_uid_list = list(OrderedDict(zip(music_uid_list, repeat(None))))  # 중복제거 (곡명과 아티스트로 검색하기때문에 다른 앨범의 곡이 2개 이상있는경우 제거
+            music_uid_list = list(OrderedDict(zip(music_uid_list, repeat(None))))  # 중복제거 (곡명과 아티스트로 검색하기때문에 다른 앨범의 곡이 2개 이상있는경우 제거
 
-                self.driver.get(make_playlist_url)
+            self.driver.get(make_playlist_url)
 
-                data = '''$.ajax({
-                type: "POST",
-                url: "/myMusic/jMyAlbumSongAdd",
-                dataType: "json",
-                data: {"mxnm": "''' + playlist_uid + '''", "xgnms": "''' + ';'.join(music_uid_list) + '''", "mxlopths": "''' + ("W;"*len(music_uid_list))[:-1] + '''", "mxflgs": "''' + ("1;"*len(music_uid_list))[:-1] + '''", "unm": iMemUno}
-            });'''
-                print(data)
-                self.driver.execute_script(data)
+            data = '''$.ajax({
+            type: "POST",
+            url: "/myMusic/jMyAlbumSongAdd",
+            dataType: "json",
+            data: {"mxnm": "''' + playlist_uid + '''", "xgnms": "''' + ';'.join(music_uid_list) + '''", "mxlopths": "''' + ("W;"*len(music_uid_list))[:-1] + '''", "mxflgs": "''' + ("1;"*len(music_uid_list))[:-1] + '''", "unm": iMemUno}
+        });'''
+            print(data)
+            self.driver.execute_script(data)
 
 
         elif user.service_id == 2:
@@ -308,49 +309,48 @@ class PlaylistManager:
             make_playlist_url = 'https://www.genie.co.kr/myMusic/newPlayList' # https://www.genie.co.kr/myMusic/jGetMyAlbum
             playlists_url = 'https://www.genie.co.kr/member/myMusic' # https://www.genie.co.kr/myMusic/jGetMyAlbum
 
-            for playlist in playlists:
-                print(playlist)
-                music_uid_list = []
-                self.driver.get(make_playlist_url)
-                make_playlist_js = '''var form = $("form[name=hiddenForm]");
-                    $(form).find("[name=albumTitle]").val( "''' + playlist.name + '''" );
-                    $(form).find("[name=albumContent]").val( "''' + description + '''" );
-                    $(form).find("[name=orgMaImg]").val($("input[name=coverImgPath]").val() );
+            print(playlist)
+            music_uid_list = []
+            self.driver.get(make_playlist_url)
+            make_playlist_js = '''var form = $("form[name=hiddenForm]");
+                $(form).find("[name=albumTitle]").val( "''' + playlist.name + '''" );
+                $(form).find("[name=albumContent]").val( "''' + description + '''" );
+                $(form).find("[name=orgMaImg]").val($("input[name=coverImgPath]").val() );
 
-                    $(form).find("[type=input],[type=textarea],[type=file],[type=hidden]").each(function(){
-                        console.log($(this).attr("name") + ":" + $(this).val())
-                    });$(form).ajaxSubmit({
-                        url: "/myMusic/playListInsert",
-                        cache: false
-                    });'''
+                $(form).find("[type=input],[type=textarea],[type=file],[type=hidden]").each(function(){
+                    console.log($(this).attr("name") + ":" + $(this).val())
+                });$(form).ajaxSubmit({
+                    url: "/myMusic/playListInsert",
+                    cache: false
+                });'''
 
-                self.driver.execute_script(make_playlist_js)
-                print(make_playlist_js)
+            self.driver.execute_script(make_playlist_js)
+            print(make_playlist_js)
 
-                self.driver.get(playlists_url)
-                playlist_uid = json.loads(self.driver.find_element_by_xpath('/html/body/pre').text)['myAlbumList'][0]['maId']
-                print(playlist_uid)
+            self.driver.get(playlists_url)
+            playlist_uid = json.loads(self.driver.find_element_by_xpath('/html/body/pre').text)['myAlbumList'][0]['maId']
+            print(playlist_uid)
 
-                for music in playlist.music_list:
-                    print(music)
-                    self.driver.get(search_get_url + music.name + ' ' + music.artist)
-                    try:
-                        music_uid_list.append(self.driver.find_element_by_xpath('//*[@id="body-content"]/div[3]/div[2]/div/table/tbody/tr[1]').get_attribute('songid'))  # 검색결과 첫번째 음악의 고유아이디
-                    except:
-                        print(f"not found {music}")
+            for music in playlist.music_list:
+                print(music)
+                self.driver.get(search_get_url + music.name + ' ' + music.artist)
+                try:
+                    music_uid_list.append(self.driver.find_element_by_xpath('//*[@id="body-content"]/div[3]/div[2]/div/table/tbody/tr[1]').get_attribute('songid'))  # 검색결과 첫번째 음악의 고유아이디
+                except:
+                    print(f"not found {music}")
 
-                music_uid_list = list(OrderedDict(zip(music_uid_list, repeat(None))))  # 중복제거 (곡명과 아티스트로 검색하기때문에 다른 앨범의 곡이 2개 이상있는경우 제거
+            music_uid_list = list(OrderedDict(zip(music_uid_list, repeat(None))))  # 중복제거 (곡명과 아티스트로 검색하기때문에 다른 앨범의 곡이 2개 이상있는경우 제거
 
-                self.driver.get(make_playlist_url)
+            self.driver.get(make_playlist_url)
 
-                data = '''$.ajax({
-                type: "POST",
-                url: "/myMusic/jMyAlbumSongAdd",
-                dataType: "json",
-                data: {"mxnm": "''' + playlist_uid + '''", "xgnms": "''' + ';'.join(music_uid_list) + '''", "mxlopths": "''' + ("W;"*len(music_uid_list))[:-1] + '''", "mxflgs": "''' + ("1;"*len(music_uid_list))[:-1] + '''", "unm": iMemUno}
-            });'''
-                print(data)
-                self.driver.execute_script(data)
+            data = '''$.ajax({
+            type: "POST",
+            url: "/myMusic/jMyAlbumSongAdd",
+            dataType: "json",
+            data: {"mxnm": "''' + playlist_uid + '''", "xgnms": "''' + ';'.join(music_uid_list) + '''", "mxlopths": "''' + ("W;"*len(music_uid_list))[:-1] + '''", "mxflgs": "''' + ("1;"*len(music_uid_list))[:-1] + '''", "unm": iMemUno}
+        });'''
+            print(data)
+            self.driver.execute_script(data)
 
 
         elif user.service_id == 3:
@@ -360,33 +360,32 @@ class PlaylistManager:
             playlists_url = 'https://vibe.naver.com/library/playlists'
 
 
-            for playlist in playlists:
-                print(playlist)
+            print(playlist)
 
-                did_playlist_ade = False
-                for music in playlist.music_list:
-                    print(music)
-                    self.driver.get(search_get_url + music.name + ' ' + music.artist)
-                    time.sleep(0.5)
-                    print("옴")
-                    try:
-                        self.driver.find_element_by_xpath('//*[@id="content"]/div/div[4]/div[1]/div/table/tbody/tr[1]/td[1]/div/label').click()
-                        print('곡선택')
-                        time.sleep(1)
-                        self.driver.find_element_by_class_name('btn_add_playlist').click()
-                        print('플레이리스트추가')
-                        if not did_playlist_ade:
-                            self.driver.find_element_by_xpath('//*[@id="app"]/div[2]/div/div/div/a[1]').click()
-                            print('생성버튼')
-                            time.sleep(0.5)
-                            self.driver.find_element_by_xpath('//*[@id="new_playlist"]').send_keys(playlist.name)
-                            self.driver.find_element_by_xpath('//*[@id="app"]/div[3]/div/div/div/a[2]').click()
+            did_playlist_ade = False
+            for music in playlist.music_list:
+                print(music)
+                self.driver.get(search_get_url + music.name + ' ' + music.artist)
+                time.sleep(0.5)
+                print("옴")
+                try:
+                    self.driver.find_element_by_xpath('//*[@id="content"]/div/div[4]/div[1]/div/table/tbody/tr[1]/td[1]/div/label').click()
+                    print('곡선택')
+                    time.sleep(1)
+                    self.driver.find_element_by_class_name('btn_add_playlist').click()
+                    print('플레이리스트추가')
+                    if not did_playlist_ade:
+                        self.driver.find_element_by_xpath('//*[@id="app"]/div[2]/div/div/div/a[1]').click()
+                        print('생성버튼')
                         time.sleep(0.5)
-                        self.driver.find_element_by_xpath('//*[@id="app"]/div[2]/div/div/div/a[2]').click()
-                        print('추가버튼')
-                    except:
-                        print(f"not found {music}")
-                    time.sleep(20)
+                        self.driver.find_element_by_xpath('//*[@id="new_playlist"]').send_keys(playlist.name)
+                        self.driver.find_element_by_xpath('//*[@id="app"]/div[3]/div/div/div/a[2]').click()
+                    time.sleep(0.5)
+                    self.driver.find_element_by_xpath('//*[@id="app"]/div[2]/div/div/div/a[2]').click()
+                    print('추가버튼')
+                except:
+                    print(f"not found {music}")
+                time.sleep(20)
 
 
 
