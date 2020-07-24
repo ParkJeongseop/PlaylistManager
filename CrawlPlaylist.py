@@ -79,7 +79,7 @@ def load_from_pickle(filename):
 
 
 class PlaylistManager:
-    def __init__(self):
+    def __init__(self, chromedriverpath):
         # self.driver = None
         options = webdriver.ChromeOptions()
         options.add_argument("user-agent=Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko")
@@ -88,7 +88,7 @@ class PlaylistManager:
         # options.add_argument("disable-gpu")
         # options.add_argument("user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36")
 
-        self.driver = webdriver.Chrome('chromedriver', chrome_options=options)
+        self.driver = webdriver.Chrome(chromedriverpath, chrome_options=options)
         self.driver.implicitly_wait(3)
 
 
