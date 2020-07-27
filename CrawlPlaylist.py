@@ -27,7 +27,7 @@ music_services = [['melon', ['local', 'kakao']],\
 
 
 class UserInfo:
-    def __init__(self, service_id, login_type, id, pw):
+    def __init__(self, service_id: int, login_type: str, id: str, pw: str):
         self.service_id = service_id
         self.login_type = login_type
         self.id = id
@@ -35,11 +35,11 @@ class UserInfo:
 
 
 class Playlist:
-    def __init__(self, playlist_name):
+    def __init__(self, playlist_name: str):
         self.name = playlist_name
         self.music_list = []
 
-    def add_music(self, music):
+    def add_music(self, music: Music):
         self.music_list.append(music)
 
     def __str__(self):
@@ -57,13 +57,13 @@ class Playlist:
 
 
 class Music:
-    def __init__(self, name, artist, album):
+    def __init__(self, name: str, artist: str, album: str):
         self.name = name
         self.artist = artist
         self.album = album
         self.keys = {}
 
-    def set_music_key(self, service_id, key):
+    def set_music_key(self, service_id: int, key: str):
         self.keys[service_id] = key
 
     def __str__(self):
@@ -79,7 +79,7 @@ def load_from_pickle(filename):
 
 
 class PlaylistManager:
-    def __init__(self, chromedriverpath):
+    def __init__(self, chromedriverpath: str):
         # self.driver = None
         options = webdriver.ChromeOptions()
         options.add_argument("user-agent=Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko")
@@ -92,7 +92,7 @@ class PlaylistManager:
         self.driver.implicitly_wait(3)
 
 
-    def get_element_by_text(self, str):
+    def get_element_by_text(self, str: str):
         element = self.driver.find_elements_by_xpath("//*[contains(text(), '" + str + "')]")
         if not len(element):
             print("Can not Find Element")
@@ -101,7 +101,7 @@ class PlaylistManager:
             return element[0]
 
 
-    def login(self, user):
+    def login(self, user: UserInfo):
         if user.service_id == 0:
             # 멜론
             if user.login_type == 'local':
@@ -176,7 +176,7 @@ class PlaylistManager:
                 self.driver.find_element_by_xpath('//*[@id="login_maintain"]/span[2]/a').click()
 
 
-    def crawl(self, user):
+    def crawl(self, user: UserInfo):
         # 반환할 플레이리스트 배열 생성
         playlist_list = []
 
@@ -217,11 +217,11 @@ class PlaylistManager:
 
         return playlist_list
 
-    def addPlaylists(self, user, playlists): # 구 migrate
+    def addPlaylists(self, user: UserInfo, playlists: Playlist): # 구 migrate
         for playlist in playlists:
             self.addPlaylist(user, playlist)
 
-    def addPlaylist(self, user, playlist):
+    def addPlaylist(self, user: UserInfo, playlist: Playlist):
         if user.service_id == 0:
             # 멜론
             search_get_url = 'https://www.melon.com/mymusic/common/mymusiccommon_searchListSong.htm?kwd='
@@ -390,7 +390,7 @@ class PlaylistManager:
 
 
 
-def input_no_blank(str):
+def input_no_blank(str: str):
     while True:
         id = input(str + ": ")
         id = id.strip()
