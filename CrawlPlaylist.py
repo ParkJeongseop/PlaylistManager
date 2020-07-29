@@ -15,9 +15,7 @@ music_services = [['melon', ['local', 'kakao']],\
                   ['vibe', ['local']],\
                   ['bugs', ['local', 'facebook', 'payco']],\
                   ['apple', ['local']],\
-                  ['mnet', ['local', 'facebook', 'twitter', 'kakao']],\
-                  ['soribada', ['local', 'facebook', 'kakao']],\
-                  ['olleh', ['local', 'facebook' , 'twitter']]]
+                  ['soribada', ['local', 'facebook', 'kakao']]]
 
 # max 멜론1000
 
