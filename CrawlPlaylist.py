@@ -4,9 +4,25 @@ from collections import OrderedDict
 from itertools import repeat
 import json
 import time
+from urllib import parse
+import requests
+from bs4 import BeautifulSoup
+from xml.etree import ElementTree
 
 
 description = "Migrated by Playlist Manager"
+
+# Musci streaming services code
+melon_code = 0
+genie_code = 1
+flo_code = 2
+vibe_code = 3
+bugs_code = 4
+apple_code = 5
+soribada = 6
+youtubemusic_code = 7
+youtube_code = 8
+
 
 login_types = ['local', 'facebook', 'twitter', 'kakao', 'skt-id', 'payco', 'phone-number']
 music_services = [['melon', ['local', 'kakao']],\
@@ -37,7 +53,7 @@ class Playlist:
         self.name = playlist_name
         self.music_list = []
 
-    def add_music(self, music: Music):
+    def add_music(self, music):
         self.music_list.append(music)
 
     def __str__(self):
@@ -88,6 +104,11 @@ class PlaylistManager:
 
         self.driver = webdriver.Chrome(chromedriverpath, chrome_options=options)
         self.driver.implicitly_wait(3)
+
+
+    def __del__(self):
+        self.driver.close()
+        # self.driver.quit()
 
 
     def get_element_by_text(self, str: str):
@@ -215,9 +236,11 @@ class PlaylistManager:
 
         return playlist_list
 
+
     def addPlaylists(self, user: UserInfo, playlists: Playlist): # 구 migrate
         for playlist in playlists:
             self.addPlaylist(user, playlist)
+
 
     def addPlaylist(self, user: UserInfo, playlist: Playlist):
         if user.service_id == 0:
@@ -384,6 +407,86 @@ class PlaylistManager:
                 except:
                     print(f"not found {music}")
                 time.sleep(20)
+
+
+    # def search_
+    # def search_music_by_text(query: str):
+
+    def search_results_by_query(self, query: str):
+        pass
+
+
+    def get_uids_by_music_obj(self, music: Music):
+        UIDs = [None for i in range(5)]
+
+
+        # 멜론
+        search_get_url = 'https://www.melon.com/mymusic/common/mymusiccommon_searchListSong.htm?kwd='
+
+        # self.driver.get(search_get_url + music.name + ' ' + music.artist)
+        try:
+            res = requests.get(search_get_url + music.name + ' ' + music.artist)
+            soup = BeautifulSoup(res.content, 'html.parser')
+            # print(soup.select_one('#DEFAULT0 > table > tbody > tr:nth-child(1)'))
+            UIDs[melon_code] = soup.select_one('#DEFAULT0 > table > tbody > tr:nth-child(1)').get('trackId')  # 검색결과 첫번째 음악의 고유아이디
+
+            UIDs[melon_code] = self.driver.find_element_by_xpath('/html/body/div[1]/input').get_attribute('value') # 검색결과 첫번째 음악의 고유아이디
+        except:
+            print(f"not found {music}")
+
+        # 지니
+        search_get_url = 'https://www.genie.co.kr/search/searchMain?query='
+
+        self.driver.get(search_get_url + music.name + ' ' + music.artist)
+        try:
+            UIDs[genie_code] = self.driver.find_element_by_xpath('//*[@id="body-content"]/div[3]/div[2]/div/table/tbody/tr[1]').get_attribute('songid')  # 검색결과 첫번째 음악의 고유아이디
+        except:
+            print(f"not found {music}")
+
+        # 플로
+        search_get_url = 'https://www.music-flo.com/api/search/v2/search?searchType=TRACK&sortType=ACCURACY&size=50&page=1&keyword='
+      
+        try:
+            res = requests.get(search_get_url + music.name + ' ' + music.artist).json()
+            UIDs[flo_code] = res['data']['list'][0]['list'][0]['id']  # 검색결과 첫번째 음악의 고유아이디
+        except:
+            print(f"not found {music}")
+
+        # Vibe
+        search_get_url = 'https://apis.naver.com/vibeWeb/musicapiweb/v3/search/track?start=1&display=100&sort=RELEVANCE&query='
+        
+        try:
+            res = requests.get(search_get_url + music.name + ' ' + music.artist)
+            tree = ElementTree.fromstring(res.content)
+            UIDs[vibe_code] = tree.findall('result/tracks/track')[0].find('trackId').text  # 검색결과 첫번째 음악의 고유아이디
+        except:
+            print(f"not found {music}")
+        
+        # Bugs
+        search_get_url = 'https://music.bugs.co.kr/search/track?q='
+        
+        res = requests.get(search_get_url + music.name + ' ' + music.artist)
+        soup = BeautifulSoup(res.content, 'html.parser')
+        # print(soup.select_one('#DEFAULT0 > table > tbody > tr:nth-child(1)'))
+        print(soup.select('#DEFAULT0 > table > tbody > tr')[0].get('trackId'))
+        a= UIDs[bugs_code] = soup.select('#DEFAULT0 > table > tbody > tr')[0].get('trackId')  # 검색결과 첫번째 음악의 고유아이디
+        print(a)
+        try:
+            res = requests.get(search_get_url + music.name + ' ' + music.artist)
+            soup = BeautifulSoup(res.content, 'html.parser')
+            # print(soup.select_one('#DEFAULT0 > table > tbody > tr:nth-child(1)'))
+            UIDs[bugs_code] = soup.select_one('#DEFAULT0 > table > tbody > tr:nth-child(1)').get('trackId')  # 검색결과 첫번째 음악의 고유아이디
+        except:
+            print(f"not found {music}")
+        
+        print(f'https://www.melon.com/song/detail.htm?songId={UIDs[melon_code]}')
+        print(f'https://www.genie.co.kr/detail/songInfo?xgnm={UIDs[genie_code]}')
+        print(UIDs[flo_code])
+        print(f'https://vibe.naver.com/track/{UIDs[vibe_code]}')
+        print(f'https://music.bugs.co.kr/track/{UIDs[bugs_code]}')
+
+        print(UIDs)
+        return UIDs
 
 
 
