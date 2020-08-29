@@ -222,7 +222,7 @@ class PlaylistManager:
                 names = self.driver.find_elements_by_xpath('//*[@id="frm"]/div/table/tbody/tr/td[3]/div/div/a[1]')
                 artists = self.driver.find_elements_by_xpath('//*[@id="artistName"]')
                 albums = self.driver.find_elements_by_xpath('//*[@id="frm"]/div/table/tbody/tr/td[5]/div/div/a')
-                uid = self.driver.find_elements_by_xpath('//*[@id="frm"]/div/table/tbody/tr[1]/td[1]/div/input')
+                uid = self.driver.find_elements_by_xpath('//*[@id="frm"]/div/table/tbody/tr[1]/td[1]/div/input').value
 
                 for k in range(len(names)):  # 플레이리스트 안 음악들
                     temp_music = Music(names[k].text, artists[k].text, albums[k].text)
