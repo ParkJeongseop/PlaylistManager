@@ -222,9 +222,11 @@ class PlaylistManager:
                 names = self.driver.find_elements_by_xpath('//*[@id="frm"]/div/table/tbody/tr/td[3]/div/div/a[1]')
                 artists = self.driver.find_elements_by_xpath('//*[@id="artistName"]')
                 albums = self.driver.find_elements_by_xpath('//*[@id="frm"]/div/table/tbody/tr/td[5]/div/div/a')
+                uid = self.driver.find_elements_by_xpath('//*[@id="frm"]/div/table/tbody/tr[1]/td[1]/div/input')
 
                 for k in range(len(names)):  # 플레이리스트 안 음악들
                     temp_music = Music(names[k].text, artists[k].text, albums[k].text)
+                    temp_music.set_music_key(melon_code, uid)
                     playlist.add_music(temp_music)
 
                 playlist_list.append(playlist)
@@ -423,12 +425,12 @@ class PlaylistManager:
         # 멜론
         search_get_url = 'https://www.melon.com/mymusic/common/mymusiccommon_searchListSong.htm?kwd='
 
-        # self.driver.get(search_get_url + music.name + ' ' + music.artist)
+        self.driver.get(search_get_url + music.name + ' ' + music.artist)
         try:
-            res = requests.get(search_get_url + music.name + ' ' + music.artist)
-            soup = BeautifulSoup(res.content, 'html.parser')
-            # print(soup.select_one('#DEFAULT0 > table > tbody > tr:nth-child(1)'))
-            UIDs[melon_code] = soup.select_one('#DEFAULT0 > table > tbody > tr:nth-child(1)').get('trackId')  # 검색결과 첫번째 음악의 고유아이디
+            # res = requests.get(search_get_url + music.name + ' ' + music.artist)
+            # soup = BeautifulSoup(res.content, 'html.parser')
+            # # print(soup.select_one('#DEFAULT0 > table > tbody > tr:nth-child(1)'))
+            # UIDs[melon_code] = soup.select_one('#DEFAULT0 > table > tbody > tr:nth-child(1)').get('trackId')  # 검색결과 첫번째 음악의 고유아이디
 
             UIDs[melon_code] = self.driver.find_element_by_xpath('/html/body/div[1]/input').get_attribute('value') # 검색결과 첫번째 음악의 고유아이디
         except:
